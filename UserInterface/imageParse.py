@@ -103,8 +103,8 @@ def imageDepth():
         
         metric_depth = np.array(np.squeeze(metric_depth))
         metric_depth = cv2.resize(metric_depth, [original_width, original_height], interpolation = cv2.INTER_AREA)
-        # plt.imshow(metric_depth)
-        # plt.show()
+        plt.imshow(metric_depth)
+        plt.show()
 
         ### ### ### ### ### ### ### ### ### ### ### ###
         os.system(f"rm {imageInfo[0]}") # read complete, delete image
