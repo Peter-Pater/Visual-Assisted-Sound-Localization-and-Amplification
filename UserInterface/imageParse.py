@@ -120,7 +120,7 @@ def imageDepth():
 
         ### ### ### ### ### ### ### ### ### ### ### ###
         os.system(f"rm {imageInfo[0]}") # read complete, delete image
-        return metric_depth
+        return position
 
 def main():
     while True:
