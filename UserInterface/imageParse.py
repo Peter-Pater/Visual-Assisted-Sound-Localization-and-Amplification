@@ -103,6 +103,18 @@ def imageDepth():
         
         metric_depth = np.array(np.squeeze(metric_depth))
         metric_depth = cv2.resize(metric_depth, [original_width, original_height], interpolation = cv2.INTER_AREA)
+
+        xy_depth = metric_depth[x][y]
+
+        fov = np.radians(54)
+        near = (np.tan(fov/2) * 1.0)
+        H = metric_depth.shape[0] // 2
+        W = metric_depth.shape[1] // 2
+        
+        new_x = (x - W) / W * xy_depth
+        new_y = (y - H) / H * xy_depth
+
+        position = np.array([new_x, new_y, xy_depth])
         # plt.imshow(metric_depth)
         # plt.show()
 
