@@ -37,8 +37,8 @@ def imageDepth():
     imageInfo = readImage()
     if imageInfo is not None:
         imageName = imageInfo[0] # file name
-        x = imageInfo[1]
-        y = imageInfo[2]
+        x = int(imageInfo[1])
+        y = int(imageInfo[2])
         print(f"Image captured with mouse at ({x}, {y})")
         read_start = time.time()
         while time.time() - read_start < 1:
@@ -104,7 +104,9 @@ def imageDepth():
         metric_depth = np.array(np.squeeze(metric_depth))
         metric_depth = cv2.resize(metric_depth, [original_width, original_height], interpolation = cv2.INTER_AREA)
 
-        xy_depth = metric_depth[x][y]
+        print(x, y)
+        print(metric_depth.shape)
+        xy_depth = metric_depth[y][x]
 
         fov = np.radians(54)
         near = (np.tan(fov/2) * 1.0)
@@ -117,6 +119,7 @@ def imageDepth():
         position = np.array([new_x, new_y, xy_depth])
         # plt.imshow(metric_depth)
         # plt.show()
+        print(position)
 
         ### ### ### ### ### ### ### ### ### ### ### ###
         os.system(f"rm {imageInfo[0]}") # read complete, delete image
