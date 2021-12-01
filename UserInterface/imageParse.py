@@ -20,6 +20,10 @@ from utils import download_model_if_doesnt_exist
 from evaluate_depth import STEREO_SCALE_FACTOR
 from PIL import Image
 
+# PRA
+from  scipy.io import wavfile
+from scipy.signal import fftconvolve
+import pyroomacoustics as pra
 
 def readImage():
     # search for png file
@@ -86,7 +90,7 @@ def imageDepth():
         with torch.no_grad():
             input_image = image.convert('RGB')
             original_width, original_height = input_image.size
-            print(original_width, original_height)
+            # print(original_width, original_height)
             input_image = input_image.resize((feed_width, feed_height), Image.LANCZOS)
             input_image = transforms.ToTensor()(input_image).unsqueeze(0)
 
@@ -104,32 +108,72 @@ def imageDepth():
         metric_depth = np.array(np.squeeze(metric_depth))
         metric_depth = cv2.resize(metric_depth, [original_width, original_height], interpolation = cv2.INTER_AREA)
 
-        print(x, y)
-        print(metric_depth.shape)
-        xy_depth = metric_depth[y][x]
+        # print(x, y)
+        # print(metric_depth.shape)
+        xy_depth = metric_depth[y][x] - 2
 
         fov = np.radians(54)
         near = (np.tan(fov/2) * 1.0)
-        H = metric_depth.shape[0] // 2
-        W = metric_depth.shape[1] // 2
+        half_H = metric_depth.shape[0] // 2
+        half_W = metric_depth.shape[1] // 2
         
-        new_x = (x - W) / W * xy_depth
-        new_y = (y - H) / H * xy_depth
+        r = np.sqrt(half_H ** 2 + half_W ** 2) # consider r as the diag
 
-        position = np.array([new_x, new_y, xy_depth])
+        new_x = (half_W - x) / r * near * xy_depth
+        new_y = (half_H - y) / r * near * xy_depth
+
+        # position = np.array([new_x, new_y, xy_depth])
+        target_loc = [xy_depth, new_x, new_y] # adjust according to the simulated space
         # plt.imshow(metric_depth)
         # plt.show()
-        print(position)
+        print("sound source location at:", target_loc)
 
         ### ### ### ### ### ### ### ### ### ### ### ###
         os.system(f"rm {imageInfo[0]}") # read complete, delete image
-        return position
+        
+        # beamforming
+        mic_center = np.asarray([0.25, 0, -0.25])
+        mic_locs = np.c_[
+            [0.2275, -0.0225, -0.25],
+            [0.2725, -0.0225, -0.25],
+            [0.2725, 0.0225, -0.25],
+            [0.2275, 0.0225, -0.25]
+        ] # just hardcode them... don't bother
+        # read the sound file
+        audio = wavfile.read("../UserInterface/data/audio.wav")
+        sample_rate, data = audio[0], audio[1].T
+        signals = [data[0], data[1], data[4], data[5]]
+        result = beamformer(mic_locs, target_loc, signals, sample_rate)
+        result = result / np.linalg.norm(result) * np.linalg.norm(data[2])
+        wavfile.write("data/audio_processed.wav", sample_rate, result.astype("float32"))
+        # return position
+
+def beamformer(mic_locs, target_loc, signals, sample_rate):
+    Lg_t = 0.1 # filter size in seconds
+    Lg = np.ceil(Lg_t*sample_rate)
+    
+    fft_len = 512
+    mics = pra.Beamformer(mic_locs, sample_rate, N=fft_len, Lg=Lg)
+    source = pra.soundsource.SoundSource(target_loc)
+
+    mics.rake_delay_and_sum_weights(source)
+    mics.filters_from_weights()
+
+    # process
+    output = fftconvolve(mics.filters[0], signals[0])
+    for i in range(1, len(signals)):
+        output += fftconvolve(mics.filters[i], signals[i])
+    output
+    return output
+
+
 
 def main():
     while True:
         try:
-            imageDepth()
+             imageDepth()
         except KeyboardInterrupt:
+            os.system(f"rm data/audio_processed.wav") # program complete, delete sound file
             return
     
 
